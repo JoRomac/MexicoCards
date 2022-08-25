@@ -7,31 +7,38 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 public class GameCtrl : MonoBehaviour, IPointerClickHandler
 {
-    public Text text, text2, trumpS;
-    public int bidValue, myBid, indexPerson, indexCom1, indexCom2;
-    public int personScore, com1Score, com2Score = 0;
+    public Text text, text2, trumpS, plSocer, op1Score, op2Score;
+
+    public int bidValue, myBid, indexPerson, gameNum, indexCom1, indexCom2;
+    public int personScore, com1Score, firstBidder, com2Score = 0;
     private int dropZoneIndex;
-    private string trumpSuit;
-    public string bidWinner;
+    private string bidWinner, trumpSuit;
     public GameObject cards;
     public Transform tfDeck;
-    public Transform[] tfPlayer, tfOpponent1, tfOpponent2, dropZone, twoCardDrop;
+    public Transform[] tfPlayer, tfOpponent1, tfOpponent2, dropZone, scores;
     public List<GameObject> deckOfCards = new List<GameObject>();
     public List<GameObject> handOfPerson = new List<GameObject>();
     public List<GameObject> handOfPl1 = new List<GameObject>();
     public List<GameObject> handOfPl2 = new List<GameObject>();
     public List<GameObject> trickZone = new List<GameObject>();
-    Dictionary<string, int> numOfSuitsPl1 = new Dictionary<string, int>(){{"c", 0}, {"h", 0}, {"s", 0}, {"d", 0}};
-    Dictionary<string, int> numOfSuitsPl2 = new Dictionary<string, int>(){{"c", 0}, {"h", 0}, {"s", 0}, {"d", 0}};
+    Dictionary<string, int> numOfSuitsPl1 = new Dictionary<string, int>(){ {"c",0},{"h",0},{"s",0},{"d",0} };
+    Dictionary<string, int> numOfSuitsPl2 = new Dictionary<string, int>(){ {"c",0},{"h",0},{"s",0},{"d",0} };
     public GameObject clickedCard;
+    public Dropdown dpSuit, dpBid;
+    public Button btn;
+    private bool roundIsFinished= false;
     // Start is called before the first frame update
     void Start()
     {
+        //btn.gameObject.SetActive(false);
+        dpSuit.interactable = false;
+        dpBid.interactable = false;
+        InitCard();
+        
     }
 
     public void getMyBid(int val)
     {
-
         if (val == 1){
             myBid = 5;
         }
@@ -53,32 +60,42 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
         else if (val == 7){
             myBid = 0;
         }
-        FirstToStart();
     }
 
     public void GetTrumpSuit(int val){
         if(val == 1){
-            trumpSuit = "Club";
+            trumpSuit = "c";
         }
         else if(val == 2){
-            trumpSuit = "Spade";
+            trumpSuit = "s";
         }
         else if(val == 3){
-            trumpSuit = "Diamond";
+            trumpSuit = "d";
         }
         else if(val == 4){
-            trumpSuit = "Heart";
+            trumpSuit = "h";
         }
         trumpS.text = trumpSuit;
+        dpSuit.interactable = false;
+        EnableClickOnCards(true);
     }
     
-
     // Update is called once per frame
     void Update()
     {
-        if (trickZone.Count == 3){
-            ComputeTrick();
+
+        if (dpBid.value > 0){
+            FirstToStart();
+            dpBid.value = 0;
         }
+        if (dpSuit.value > 0){
+            dpSuit.value = 0;
+        }
+        if (roundIsFinished){
+            //dpBid.value = 0;
+            dpBid.interactable = true;
+        }
+        roundIsFinished = false;
     }
     public void RemoveTwoCards(List<GameObject> hand, Dictionary<string,int> leastSuit){
         string s = "";
@@ -126,10 +143,16 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             deckOfCards.Add(_card);
         }
         StartCoroutine(DealCards());
-        
-    }
 
-    
+        numOfSuitsPl1["c"] = 0;
+        numOfSuitsPl1["h"] = 0;
+        numOfSuitsPl1["s"] = 0;
+        numOfSuitsPl1["d"] = 0;
+        numOfSuitsPl2["c"] = 0;
+        numOfSuitsPl2["h"] = 0;
+        numOfSuitsPl2["s"] = 0;
+        numOfSuitsPl2["d"] = 0;
+    }
 
     IEnumerator DealCards() {
 
@@ -139,9 +162,9 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             
             deckOfCards[rndCard].transform.SetParent(tfPlayer[i], true);
             iTween.MoveTo(deckOfCards[rndCard],
-                    iTween.Hash("position", tfPlayer[i].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("position", tfPlayer[i].position, "easeType", "Linear", "time", 0.4f));
 		    iTween.RotateBy(deckOfCards[rndCard],
-                    iTween.Hash("y", 0.5f, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("y", 0.5f, "easeType", "Linear", "time", 0.4f));//"loopType", "none"
             yield return new WaitForSeconds(0.15f);
             deckOfCards[rndCard].GetComponent<UICards>().bckImage.SetActive(false);
             handOfPerson.Add(deckOfCards[rndCard]);
@@ -151,7 +174,7 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             int rndCardForPy1 = Random.Range(0, deckOfCards.Count);
             deckOfCards[rndCardForPy1].transform.SetParent(tfOpponent1[i], true);
             iTween.MoveTo(deckOfCards[rndCardForPy1],
-                    iTween.Hash("position", tfOpponent1[i].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("position", tfOpponent1[i].position, "easeType", "Linear", "time", 0.4f));
             handOfPl1.Add(deckOfCards[rndCardForPy1]);
             deckOfCards.RemoveAt(rndCardForPy1);
             
@@ -159,10 +182,16 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             int rndCardForPy2 = Random.Range(0, deckOfCards.Count);
             deckOfCards[rndCardForPy2].transform.SetParent(tfOpponent2[i], true);
             iTween.MoveTo(deckOfCards[rndCardForPy2],
-                    iTween.Hash("position", tfOpponent2[i].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("position", tfOpponent2[i].position, "easeType", "Linear", "time", 0.4f));
             handOfPl2.Add(deckOfCards[rndCardForPy2]);        
             deckOfCards.RemoveAt(rndCardForPy2);
 
+        }
+        EnableClickOnCards(false);
+    }
+    public void EnableClickOnCards(bool tf){
+         for(int i = 0;i < handOfPerson.Count; ++i){
+            handOfPerson[i].GetComponent<UICards>().cardImg.raycastTarget = tf;
         }
     }
     IEnumerator DealTalon(int pl)
@@ -173,9 +202,9 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             {
                 deckOfCards[i].transform.SetParent(tfPlayer[i+10], true);
                 iTween.MoveTo(deckOfCards[i],
-                    iTween.Hash("position", tfPlayer[i+10].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("position", tfPlayer[i+10].position, "easeType", "Linear", "time", 0.4f));
 		        iTween.RotateBy(deckOfCards[i],
-                    iTween.Hash("y", 0.5f, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("y", 0.5f, "easeType", "Linear", "time", 0.4f));
                     yield return new WaitForSeconds(0.15f);
             deckOfCards[i].GetComponent<UICards>().bckImage.SetActive(false);
             handOfPerson.Add(deckOfCards[i]);
@@ -184,7 +213,7 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             {
                 deckOfCards[i].transform.SetParent(tfOpponent1[i+10], true);
             iTween.MoveTo(deckOfCards[i],
-                    iTween.Hash("position", tfOpponent1[i+10].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("position", tfOpponent1[i+10].position, "easeType", "Linear", "time", 0.4f));
                     yield return new WaitForSeconds(0.15f); 
             handOfPl1.Add(deckOfCards[i]);    
             }
@@ -192,17 +221,20 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             {
                 deckOfCards[i].transform.SetParent(tfOpponent2[i+10], true);
             iTween.MoveTo(deckOfCards[i],
-                    iTween.Hash("position", tfOpponent2[i+10].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("position", tfOpponent2[i+10].position, "easeType", "Linear", "time", 0.4f));
                     yield return new WaitForSeconds(0.15f);
             handOfPl2.Add(deckOfCards[i]);
             }
         }
         deckOfCards.Clear();
+        
     }
+   
     private string StartBid()
     {
         int res1 = BiddingRes(handOfPl1, numOfSuitsPl1);
-        int res2 = BiddingRes(handOfPl2, numOfSuitsPl2);
+        int res2 = BiddingRes(handOfPl2, numOfSuitsPl2);    
+        
         if(myBid >= res1 && myBid >= res2){
             res1 = 0;
             res2 = 0;
@@ -215,73 +247,62 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
         }
         text2.text = res2.ToString();
         if (myBid == 0 && res1 == 0 && res2 == 0){
-            SceneManager.LoadScene("Game");
+            handOfPerson.Clear(); handOfPl1.Clear(); handOfPl2.Clear(); deckOfCards.Clear();
+            InitCard();
         }
         if (myBid > res1 && myBid > res2){
             StartCoroutine(DealTalon(1));
+            dpSuit.interactable = true;
             return "person";
         }
         else if(res1 > myBid && res1 > res2){
             StartCoroutine(DealTalon(2));
+            var firstEl = numOfSuitsPl1.OrderByDescending(kvp => kvp.Value).First();
+            trumpSuit = firstEl.Key;
+            trumpS.text = trumpSuit;
             return "com1";
         }
         else{
             StartCoroutine(DealTalon(3));
+            var firstEl = numOfSuitsPl2.OrderByDescending(kvp => kvp.Value).First();
+            trumpSuit = firstEl.Key;
+            trumpS.text = trumpSuit;
             return "com2";
         }
     }
 
-        
     public int BiddingRes(List<GameObject> hand, Dictionary<string,int> numOfSuits){
-        int countClubs =0, countDiam = 0, countSpade = 0, countHeart = 0;
         for (int i = 0; i <hand.Count;++i){
                 if (hand[i].GetComponent<UICards>().cardSuit.Equals("c")){
-                    ++countClubs;
                     numOfSuits["c"]++;
-                    if (countClubs >= 5){
-                        bidValue = countClubs;
-                        trumpSuit = "Club";
-                        break;
-                    }
                 }
                 else if (hand[i].GetComponent<UICards>().cardSuit.Equals("h")){
-                    ++countHeart;
                     numOfSuits["h"]++;
-                    if (countHeart >= 5){
-                        bidValue = countHeart;
-                        trumpSuit = "Heart";
-                        break;
-                    }
                 }
                 else if (hand[i].GetComponent<UICards>().cardSuit.Equals("s")){
-                    ++countDiam;
                     numOfSuits["s"]++;
-                    if (countDiam >= 5){
-                        bidValue = countDiam;
-                        trumpSuit = "Spade";
-                        break;
-                    }
                 }
-                else if (hand[i].GetComponent<UICards>().cardSuit.Equals("d")){
-                    ++countSpade;
+                else{
                     numOfSuits["d"]++;
-                    if (countSpade >= 5){
-                        bidValue = countSpade;
-                        trumpSuit = "Diamond";
-                        break;
-                    }
                 }
         
         }
-        if (countClubs < 5 && countDiam < 5 && countHeart < 5 && countSpade < 5){
-            bidValue = 0;
+        var firstEl = numOfSuits.OrderByDescending(kvp => kvp.Value).First();
+        bidValue = firstEl.Value;
+        if (bidValue < 4){
+            return 0;
         }
-        return bidValue;
+        else if (bidValue == 4){
+            return bidValue += 1;
+        }
+        else{
+            return bidValue;
+        }
     }
     
     public void FirstToStart(){
-
         bidWinner = StartBid();
+        ++firstBidder;
         if (bidWinner.Equals("person")){
             indexPerson = 0;
             indexCom1 = 1;
@@ -292,7 +313,7 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             indexPerson = 1;
             indexCom1 = 2;
             indexCom2 = 0;
-            PlayTrickC2();
+            StartCoroutine(PlayTrickC2());
         }
         else if(bidWinner.Equals("com1"))
         {
@@ -300,12 +321,8 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             indexPerson = 2;
             indexCom1 = 0;
             indexCom2 = 1;
-            PlayTrickC1();
+            StartCoroutine(PlayTrickC1());
         }
-
-    }
-
-    public void FirstToContinue(){
 
     }
 
@@ -313,7 +330,7 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
         int winCard;
         int numOfTrumps = 0;
         int indexOfWinCard = 0;
-        var curTrumpSuit = trumpSuit.ToLower().Substring(0,1);
+        var curTrumpSuit = trumpSuit;
         List<int> trumpIndex = new List<int>();
         List<int> values = new List<int>();
         List<string> suits = new List<string>();
@@ -357,39 +374,148 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
             winCard = values[trumpIndex[0]];
         }
         Debug.Log(winCard);
+        
         for (int i = 0; i <trickZone.Count;++i){
             if (winCard == values[i]){
                 indexOfWinCard = i;
             }
         }
+        Destroy(trickZone[0]);
+        Destroy(trickZone[1]);
+        Destroy(trickZone[2]);
+        trickZone.Clear();
+        
+        
         if(indexOfWinCard == indexPerson){
             ++personScore;
+            indexPerson = 0;
+            indexCom1 = 1;
+            indexCom2 = 2;
+            if(handOfPerson.Count == 0){
+                goto end;
+            }
         }
         else if(indexOfWinCard == indexCom1){
             ++com1Score;
             indexCom1 = 0;
             indexCom2 = 1;
             indexPerson = 2;
-            PlayTrickC1();
-
+            if(handOfPl1.Count == 0){
+                goto end;
+            }
+            else{
+                StartCoroutine(PlayTrickC1());
+            }
         }
         else{
             ++com2Score;
             indexCom2 = 0;
             indexPerson = 1;
-            indexCom2 = 2;
-            PlayTrickC2();
+            indexCom1 = 2;
+            if(handOfPl2.Count == 0){
+                goto end;
+            }
+            else{
+                StartCoroutine(PlayTrickC2());
+            }
+            
         }
         Debug.Log(personScore);
         Debug.Log(com1Score);
         Debug.Log(com2Score);
+    end:
+        if(handOfPerson.Count == 0 && handOfPl1.Count == 0 && handOfPl2.Count ==0){
+            bool isLastRound = CalculateScores();
+            if(!isLastRound){
+                InitCard();
+                roundIsFinished = true;
+            }
+        }
+
     }
-    public void PlayTrickC1(){
+   
+    public bool CalculateScores(){
+         if(bidWinner.Equals("person")){
+                if (personScore < myBid){
+                    personScore = -(myBid *2);
+                }
+                if (com1Score == 0){
+                    com1Score = -myBid;
+                }
+                if (com2Score == 0){
+                    com2Score = -myBid;
+                }
+            }
+            else if(bidWinner.Equals("com1")){
+                if(com1Score < bidValue){
+                    com1Score = -(bidValue*2);
+                }
+                if(com2Score == 0){
+                    com2Score = -bidValue;
+                }
+                if(personScore == 0){
+                    personScore = -bidValue;
+                }
+            }
+            else if(bidWinner.Equals("com2")){
+                if(com2Score < bidValue){
+                    com2Score = -(bidValue*2);
+                }
+                if(com1Score == 0){
+                    com1Score = -bidValue;
+                }
+                if(personScore == 0){
+                    personScore = -bidValue;
+                }
+            }
+            for (int i = 0; i < gameNum+1;++i){
+                if (i == gameNum-1){
+                    var prevS = scores[gameNum-1].transform.GetChild(0).gameObject.GetComponent<Text>();
+                    personScore+= int.Parse(prevS.text);
+                    var prevS1 = scores[gameNum-1].transform.GetChild(1).gameObject.GetComponent<Text>();
+                    com1Score += int.Parse(prevS1.text);
+                    var prevS2 = scores[gameNum-1].transform.GetChild(2).gameObject.GetComponent<Text>();
+                    com2Score += int.Parse(prevS2.text);
+                }
+                if( i == gameNum){
+                    var s = scores[i].transform.GetChild(0).gameObject.GetComponent<Text>();
+                    s.text = personScore.ToString();
+                    var s1 = scores[i].transform.GetChild(1).gameObject.GetComponent<Text>();
+                    s1.text = com1Score.ToString();
+                    var s2 = scores[i].transform.GetChild(2).gameObject.GetComponent<Text>();
+                    s2.text = com2Score.ToString();
+                }
+                
+                
+            }
+            ResetValues();
+            ++gameNum;
+            if (gameNum == 9){
+                btn.gameObject.SetActive(true);
+                return true;
+            }
+            return false;
+    }
+    public void ResetValues(){
+        personScore = 0;
+            com1Score = 0;
+            com2Score = 0;
+            myBid = 0;
+            bidValue = 0;
+            trumpS.text = "";
+    }
+    public void PlayAgain(){
+        SceneManager.LoadScene("mexico");
+        btn.gameObject.SetActive(false);
+    }
+
+    IEnumerator PlayTrickC1(){
+        EnableClickOnCards(false);
         int cardToPlay = -1;
         if (indexCom1 == 0){
                 cardToPlay = Random.Range(0, handOfPl1.Count);
         }
-        if (indexCom1 != 0){
+        else {
             for (int i = 0; i<handOfPl1.Count;++i){
                 // ako je ista boja kao u prvoj bacenoj karti
                 if (handOfPl1[i].GetComponent<UICards>().cardSuit.Equals(trickZone[0].GetComponent<UICards>().cardSuit)){
@@ -403,55 +529,72 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
                         cardToPlay = j;
                     }
                 }
+            }
             if (cardToPlay < 0){
                 cardToPlay = Random.Range(0, handOfPl1.Count);
-                }
             }
         }
         
             handOfPl1[cardToPlay].transform.SetParent(dropZone[indexCom1], true);
         iTween.MoveTo(handOfPl1[cardToPlay],
-            iTween.Hash("position", dropZone[indexCom1].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
-        iTween.RotateBy(handOfPl1[cardToPlay], iTween.Hash("y", 0.5f, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+            iTween.Hash("position", dropZone[indexCom1].position, "easeType", "Linear", "time", 0.9f));
+        iTween.RotateBy(handOfPl1[cardToPlay], iTween.Hash("y", 0.5f, "easeType", "Linear", "time", 0.4f));
         handOfPl1[cardToPlay].GetComponent<UICards>().bckImage.SetActive(false);
         trickZone.Add(handOfPl1[cardToPlay]);
         handOfPl1.RemoveAt(cardToPlay);
-        new WaitForSeconds(4f);
-        PlayTrickC2();
+        yield return new WaitForSeconds(2);
+        if (trickZone.Count == 3){
+            ComputeTrick();
+            Cursor.lockState =CursorLockMode.Confined;
+        }
+        else{
+            StartCoroutine(PlayTrickC2());
+        }
+
     }
-    public void PlayTrickC2(){
+    IEnumerator PlayTrickC2(){
+        
         int cardToPlay = -1;
+        //ako je prvi na potezu, nasumično odigrati kartu
         if (indexCom2 == 0){
                 cardToPlay = Random.Range(0, handOfPl2.Count);
         }
-        if (indexCom2 != 0){
+        else {
             for (int i = 0; i<handOfPl2.Count;++i){
-                // ako je ista boja kao u prvoj bacenoj karti
+                // karta koja se igra mora biti odgovarajuće boje prvoj bacenoj
                 if (handOfPl2[i].GetComponent<UICards>().cardSuit.Equals(trickZone[0].GetComponent<UICards>().cardSuit)){
                     cardToPlay = i;
                 }
             }
+            //u slucaju da nema odgovarajuće boje, provjeriti dali ima aduta
             if (cardToPlay < 0){
                 for (int j = 0; j<handOfPl2.Count;++j){
-                // ako je ista boja kao u prvoj bacenoj karti
+                // ako bacena karta odgovara adut boji ta karta se igra
                     if (handOfPl2[j].GetComponent<UICards>().cardSuit.Equals(trumpSuit)){
                         cardToPlay = j;
                     }
                 }
+            }
+            //ako ne postoji niti adut niti odgovarajća boja prvoj bačenoj karti odigrati bilo koju kartu
             if (cardToPlay < 0){
                 cardToPlay = Random.Range(0, handOfPl2.Count);
-                }
             }
+            
         }
         handOfPl2[cardToPlay].transform.SetParent(dropZone[indexCom2], true);
         iTween.MoveTo(handOfPl2[cardToPlay],
-                iTween.Hash("position", dropZone[indexCom2].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                iTween.Hash("position", dropZone[indexCom2].position, "easeType", "Linear", "time", 0.9f));
 		iTween.RotateBy(handOfPl2[cardToPlay],
-                iTween.Hash("y", 0.5f, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                iTween.Hash("y", 0.5f, "easeType", "Linear", "time", 0.4f));
         handOfPl2[cardToPlay].GetComponent<UICards>().bckImage.SetActive(false);
         trickZone.Add(handOfPl2[cardToPlay]);
         handOfPl2.RemoveAt(cardToPlay);
-        //ComputeTrick();
+        yield return new WaitForSeconds(2);
+        EnableClickOnCards(true);
+        if (trickZone.Count == 3){
+            ComputeTrick();
+        }
+        
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -465,11 +608,17 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
         else{
             handOfPerson[index].transform.SetParent(dropZone[indexPerson], true);
             iTween.MoveTo(handOfPerson[index],
-                    iTween.Hash("position", dropZone[indexPerson].position, "easeType", "Linear", "loopType", "none", "time", 0.4f));
+                    iTween.Hash("position", dropZone[indexPerson].position, "easeType", "Linear", "time", 0.4f));
 		            handOfPerson[index].GetComponent<UICards>().bckImage.SetActive(false);
             trickZone.Add(handOfPerson[index]);
             handOfPerson.RemoveAt(index);
-            PlayTrickC1();
+            if (trickZone.Count == 3){
+                ComputeTrick();
+            }
+            else{
+                StartCoroutine(PlayTrickC1());
+            }
+            
         }
             
     }
@@ -490,4 +639,5 @@ public class GameCtrl : MonoBehaviour, IPointerClickHandler
         }
         return -1;
     }
+
 }
